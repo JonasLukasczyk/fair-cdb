@@ -3,38 +3,12 @@ import readline from 'readline';
 import yaml from 'js-yaml';
 import XMLImageDataReader from '@kitware/vtk.js/IO/XML/XMLImageDataReader.js';
 
-const getFieldDataArrays = filePath => {
-  const fileBuffer = fs.readFileSync(filePath);
-  const reader = XMLImageDataReader.newInstance();
-  reader.parseAsArrayBuffer(fileBuffer);
-  const imageData = reader.getOutputData();
-  const fieldData = imageData.getFieldData();
-
-  let map = new Map();
-
-  for (let i = 0; i < fieldData.getNumberOfArrays(); i++) {
-      const array = fieldData.getArray(i);
-      const nv = array.getNumberOfValues();
-      if(nv==1){
-        const name = array.getName();
-        map.set(name,array.getData().slice(0, 1)[0]);
-      }
-  }
-
-  return map;
-};
-
-// const cdb_path = '/home/jones/2tb/data/jet4.cdb';
-// const cdb_path = '/home/jones/2tb/data/jet4-benchmark-localized-topological-simplification-main/';
-// const cdb_path = '/home/jones/2tb/data/jet-data-new/';
-// const cdb_path = '/home/wetzels/jet4-benchmark-localized-topological-simplification/';
-const cdb_path = '/home/wetzels/data/jet4-test.cdb/';
-
+const cdb_path = process.argv[2]
 
 const root_files = fs.readdirSync(cdb_path);
+const default_date = new Date();
+const default_name = cdb_path.split('/').at(-2);
 
-const fd = getFieldDataArrays(cdb_path+'v_0000.vti');
-console.log(fd);
 
 const roc = {
   "@context": "https://w3id.org/ro/crate/1.1/context",
@@ -47,9 +21,6 @@ const roc = {
     }
   ]
 };
-
-const default_date = new Date();
-const default_name = cdb_path.split('/').at(-2);
 
 const root_dataset = {
   '@id': './',
@@ -72,8 +43,29 @@ const userParameters = new Map();
 const userVariables = new Map();
 const userVariableAnnotations = new Map();
 
+const getFieldDataArrays = filePath => {
+  const fileBuffer = fs.readFileSync(filePath);
+  const reader = XMLImageDataReader.newInstance();
+  reader.parseAsArrayBuffer(fileBuffer);
+  const imageData = reader.getOutputData();
+  const fieldData = imageData.getFieldData();
+
+  let map = new Map();
+
+  for (let i = 0; i < fieldData.getNumberOfArrays(); i++) {
+      const array = fieldData.getArray(i);
+      const nv = array.getNumberOfValues();
+      if(nv==1){
+        const name = array.getName();
+        map.set(name,array.getData().slice(0, 1)[0]);
+      }
+  }
+
+  return map;
+};
+
 const cffAffiliation2SchemaOrganization = cffAffiliation => {
-  const id = encodeURI(cffAffiliation);
+  const id = '#'+encodeURI(cffAffiliation);
   if(organizations.has(id)) return id;
 
   const organization = {
@@ -87,9 +79,7 @@ const cffAffiliation2SchemaOrganization = cffAffiliation => {
 };
 
 const cffPerson2SchemaPerson = cffPerson => {
-  if(cffPerson.orcid) return cffPerson.orcid;
-
-  const id = encodeURI(cffPerson['given-names']+'_'+cffPerson['family-names']);
+  const id = cffPerson.orcid ? cffPerson.orcid : '#'+encodeURI(cffPerson['given-names']+'_'+cffPerson['family-names']);
   if(persons.has(id)) return id;
 
   const person = {
@@ -184,89 +174,6 @@ const processTerms = file => {
   }
 };
 
-// processTerms('terms.yml');
-// console.log('userParameters',userParameters);
-// console.log('userVariables',userVariables);
-// console.log('userVariableAnnotations',userVariableAnnotations);
-
-// const prompt_choice = async (name,suggestions)=>{
-//   let title = '';
-//   title += `-------------------------------------------------------------------------\n`;
-//   title += `Please provide an Ontology Term Identifier for data.csv column "${name}".\n`;
-
-//   // suggestions.push(['None','use the column name as an undefined term','']);
-
-//   title += '  Suggestions:\n';
-//   for(let i=0; i<suggestions.length; i++)
-//     title += `    ${i+1}) ${suggestions[i][0]}: ${suggestions[i][1]}\n       ${suggestions[i][2]}\n`;
-//   title += 'TermIdentifier: ';
-
-//   const answer = await prompt_cmdline(title);
-//   if(answer==='')
-//     return {
-//       '@id':'#'+name.split(' ').join('_'),
-//       name:name,
-//     };
-
-//   // TODO what if user entered text instead of index
-//   const answerAsIndex = parseInt(answer)-1;
-//   return {
-//     '@id':suggestions[answerAsIndex][3],
-//     identifier:suggestions[answerAsIndex][0],
-//     name:suggestions[answerAsIndex][1],
-//   };
-// };
-
-// const prompt_variable = async ()=>{
-//   let title = '';
-//   title += `-------------------------------------------------------------------------\n`;
-//   title += `Please provide additional variables represented in the data if possible.\n`;
-//   title += 'Variable Name: ';
-
-//   const name = await prompt_cmdline(title);
-//   if(!(name==='')){
-//     title = 'Variable Term Identifier:';
-//     const url = await prompt_cmdline(title);
-//     if(!(url==='')){
-//       return {
-//         '@id':url,
-//         '@type':'PropertyValue',
-//         propertyID:url,
-//         name:name,
-//       };
-//     }
-//     else{
-//       return {
-//         '@id':'#'+,name.split(' ').join('_')
-//         '@type':'PropertyValue',
-//         name:name,
-//       };
-//     }
-//   }
-//   else{
-//     return;
-//   }
-
-//   // TODO what if user entered text instead of index
-//   const answerAsIndex = parseInt(answer)-1;
-//   return {
-//     '@id':suggestions[answerAsIndex][3],
-//     identifier:suggestions[answerAsIndex][0],
-//     name:suggestions[answerAsIndex][1],
-//   };
-// };
-
-// const suggestions = {
-//   'time': [
-//     ['APOLLO_SV_00000069','time step identifying numeral','The time step number of a simulation.','http://purl.obolibrary.org/obo/APOLLO_SV_00000069'],
-//     ['APOLLO_SV_00000272','time since time scale zero','A duration of time that has elapsed since the zero reference point of a time scale.','http://purl.obolibrary.org/obo/APOLLO_SV_00000272'],
-//     ['OMRSE_00000136','date','The only valid string values for this property are ISO 8601 formatted date strings in extended form. It is allowable specify only the year, e.g. "2016" but only when the 1D temporal region references the entire year. Ditto for month, e.g. "2016-04" is acceptable but only if it references the entire interval of that month.'],
-//   ],
-//   'angle': [
-//     ['TODO','TODO','TODO'],
-//   ],
-// };
-
 const createTermValue = (termKey,value)=>{
   const id = termKey+'_'+value;
   if(termValues.has(id)) return id;
@@ -337,18 +244,6 @@ const createFile = async (path,file_terms)=>{
   return id;
 };
 
-// const getOntologyTerm = async (name,target)=>{
-//   const name_lower = name.toLowerCase();
-//   return await prompt_choice(
-//     name,
-//     ['t','time','timestep'].includes(name_lower) || name_lower.includes('time')
-//       ? suggestions.time
-//       : name_lower.includes('step')
-//         ? [suggestions.time[0]]
-//         : []
-//   );
-// };
-
 const processCSV = async file => {
   const csv_raw = fs.readFileSync(cdb_path+'/'+file,'UTF-8').split('\n');
   const columns = csv_raw[0].split(',').map(i=>i.trim());
@@ -370,7 +265,6 @@ const processCSV = async file => {
 
   }
 
-  // for(let i=1; i<3; i++){
   for(let i=1; i<csv_raw.length; i++){
     if(csv_raw[i]==='') continue;
     const values = csv_raw[i].split(',').map(i=>i.trim());
@@ -391,7 +285,6 @@ const processCSV = async file => {
     if(name in terms.keys()){
       const term = userVariableAnnotations[key];
       variables.set(name,term);
-      // term['@type'] = 'Property';
       root_dataset.variableMeasured.push({'@id': term['@id']});
       roc['@graph'].push(term);
     }
@@ -442,72 +335,3 @@ const init = async ()=>{
 };
 
 init();
-
-
-
-// const root_dataset = {
-//   '@id': './',
-//   '@type': 'Dataset',
-//   'hasPart': []
-// };
-// roc['@graph'].push(dataset);
-
-
-// const csv = fs.readFileSync('./data.csv', 'utf8');
-// const lines = csv.split('\n');
-// const header = lines[0].split(',').map(x=>x.trim());
-// const rows = lines.slice(1);
-
-// const header_map = {
-//   'Sim': {
-//     'termCode': 'http://purl.obolibrary.org/obo/IAO_0020000',
-//     'name':'identifier'
-//   },
-//   'Time': {
-//     'termCode': 'http://purl.obolibrary.org/obo/APOLLO_SV_00000069',
-//     'name':'simulatorTime'
-//   },
-// };
-
-// const nColumns = header.length;
-
-
-// let counter = 0;
-// for(let row of rows){
-//   const items = row.split(',').map(x=>x.trim());
-//   if(items.length!==nColumns) continue;
-
-//   if(counter++>5) break;
-
-//   const rowAsSchemaFile = {
-//     '@id': './'+items[2],
-//     '@type': ['File','Sample'],
-//     'encodingFormat': 'vti',
-//     'additionalProperty': []
-//   };
-
-//   for(let i=0; i<nColumns; i++){
-//     const name = header[i];
-//     if(name==='FILE') continue;
-
-//     const term = header_map[name];
-//     const property = {
-//       '@id': items[2]+'_'+i,
-//       '@type': 'PropertyValue',
-//       'propertyID': term.termCode,
-//       'name': term.name,
-//       'value': items[i]
-//     };
-
-//     roc['@graph'].push(property);
-//     rowAsSchemaFile.additionalProperty.push({'@id': property['@id']});
-//   }
-
-//   dataset.hasPart.push({'@id': rowAsSchemaFile['@id']});
-
-//   roc['@graph'].push(rowAsSchemaFile);
-// }
-
-// console.log(roc);
-
-// fs.writeFileSync('ro-crate-metadata.json', JSON.stringify(roc,null,2));
