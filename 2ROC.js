@@ -1,3 +1,32 @@
+import fs from 'fs';
+import readline from 'readline';
+import yaml from 'js-yaml';
+import XMLImageDataReader from '@kitware/vtk.js/IO/XML/XMLImageDataReader.js';
+
+const getFieldDataArrays = filePath => {
+  const fileBuffer = fs.readFileSync(filePath);
+  const reader = XMLImageDataReader.newInstance();
+  reader.parseAsArrayBuffer(fileBuffer);
+  const imageData = reader.getOutputData();
+  const fieldData = imageData.getFieldData();
+
+  // Output the field data arrays
+  console.log('Field Data Arrays:');
+
+  for (let i = 0; i < fieldData.getNumberOfArrays(); i++) {
+      const array = fieldData.getArray(i);
+      console.log(`Array ${i}:`);
+      console.log(`  Name: ${array.getName()}`);
+      console.log(`  Number of Values: ${array.getNumberOfValues()}`);
+      console.log(`  Data: ${array.getData().slice(0, 10).join(', ')}`);
+  }
+
+  return fieldData;
+};
+
+const fd = getFieldDataArrays('/tmp/test.vti');
+console.log(fd);
+
 // const cdb_path = '/home/jones/2tb/data/jet4.cdb';
 const cdb_path = '/home/jones/2tb/data/jet4-benchmark-localized-topological-simplification-main/';
 // const cdb_path = '/home/jones/2tb/data/jet-data-new/';
@@ -13,12 +42,6 @@ const roc = {
     }
   ]
 };
-
-// process cff
-
-const fs = require('fs');
-const yaml = require('js-yaml');
-const readline = require('readline');
 
 const prompt_cmdline = question => {
   const rl = readline.createInterface({
@@ -288,6 +311,8 @@ const init = async ()=>{
 
   const res = JSON.stringify(roc,null,2);
   fs.writeFileSync(cdb_path+'/ro-crate-metadata.json', res);
+
+  // console.log(res)
 };
 
 init();
