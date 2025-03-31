@@ -70,6 +70,7 @@ const cffAffiliation2SchemaOrganization = cffAffiliation => {
 
   const organization = {
     '@id': id,
+    '@type': 'Organization',
     'name': cffAffiliation
   };
   organizations.set(id,organization);
@@ -183,9 +184,9 @@ const createTermValue = (termKey,value)=>{
   const termValue =  {
     '@id': id,
     '@type': 'PropertyValue',
-    'propertyID': term['@id'],
+    'propertyID': term.propertyID,
     'description': term.description,
-    'identifier': term.identifier,
+    'identifier': term['@id'],
     'name': term.name,
     'value': value
   };
