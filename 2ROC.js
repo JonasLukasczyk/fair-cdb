@@ -1,6 +1,7 @@
 // const cdb_path = '/home/jones/2tb/data/jet4.cdb';
-const cdb_path = '/home/jones/2tb/data/jet4-benchmark-localized-topological-simplification-main/';
+// const cdb_path = '/home/jones/2tb/data/jet4-benchmark-localized-topological-simplification-main/';
 // const cdb_path = '/home/jones/2tb/data/jet-data-new/';
+const cdb_path = '/home/wetzels/jet4-benchmark-localized-topological-simplification/';
 
 const roc = {
   "@context": "https://w3id.org/ro/crate/1.1/context",
@@ -20,28 +21,20 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const readline = require('readline');
 
-const prompt_cmdline = question => {
-  const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-  });
-
-  return new Promise(resolve => {
-      rl.question(question, answer => {
-          rl.close();
-          resolve(answer);
-      });
-  });
-};
-
 
 const root_files = fs.readdirSync(cdb_path);
+
+const default_date = new Date();
+const default_name = cdb_path.split('/').at(-2);
 
 const root_dataset = {
   '@id': './',
   '@type': 'Dataset',
   'variableMeasured': [],
-  'hasPart': []
+  'hasPart': [],
+  'license': 'ALL RIGHTS RESERVED BY THE AUTHORS',
+  'datePublished': default_date.toISOString(),
+  'name': default_name
 };
 roc['@graph'].push(root_dataset);
 
@@ -51,6 +44,9 @@ const terms = new Map();
 const termValues = new Map();
 const files = new Map();
 const variables = new Map();
+const userParameters = new Map();
+const userVariables = new Map();
+const userVariableAnnotations = new Map();
 
 const cffAffiliation2SchemaOrganization = cffAffiliation => {
   const id = encodeURI(cffAffiliation);
@@ -118,44 +114,134 @@ const processCFF = file => {
   }
 };
 
-const prompt_choice = async (name,suggestions)=>{
-  let title = '';
-  title += `-------------------------------------------------------------------------\n`;
-  title += `Please provide an Ontology Term Identifier for data.csv column "${name}".\n`;
-
-  // suggestions.push(['None','use the column name as an undefined term','']);
-
-  title += '  Suggestions:\n';
-  for(let i=0; i<suggestions.length; i++)
-    title += `    ${i+1}) ${suggestions[i][0]}: ${suggestions[i][1]}\n       ${suggestions[i][2]}\n`;
-  title += 'TermIdentifier: ';
-
-  const answer = await prompt_cmdline(title);
-  if(answer==='')
-    return {
-      '@id':'#'+name.split(' ').join('_'),
-      name:name,
+const processTerms = file => {
+  const terms_yml = fs.readFileSync(cdb_path+'/'+file,'UTF-8');
+  const term_assignment = yaml.load(terms_yml);
+  for(let key of Object.keys(term_assignment['parameters'])){
+    const term = term_assignment['parameters'][key];
+    term_object = {
+      '@id': "#"+key.split(' ').join('_'),
+      '@type': 'PropertyValue',
+      'name': key
     };
-
-  // TODO what if user entered text instead of index
-  const answerAsIndex = parseInt(answer)-1;
-  return {
-    '@id':suggestions[answerAsIndex][3],
-    identifier:suggestions[answerAsIndex][0],
-    name:suggestions[answerAsIndex][1],
-  };
+    if(term['term']){
+      term_object['@id'] = term['term'];
+      term_object.identifier = term['term'];
+    }
+    if(term['description'])
+      term_object.description = term['description'];
+    if(term['identifier'])
+      term_object.propertyID = term['identifier'];
+    if(term['name'])
+      term_object.name = term['name'];
+    userParameters.set(key,term_object);
+  }
+  for(let key of Object.keys(term_assignment['variables'])){
+    const term = term_assignment['variables'][key];
+    term_object = {
+      '@id': "#"+key.split(' ').join('_'),
+      '@type': 'PropertyValue',
+      'name': key
+    };
+    if(term['term']){
+      term_object['@id'] = term['term'];
+      term_object.identifier = term['term'];
+    }
+    if(term['description'])
+      term_object.description = term['description'];
+    if(term['identifier'])
+      term_object.propertyID = term['identifier'];
+    if(term['name'])
+      term_object.name = term['name'];
+    if(term['forced'])
+      userVariables.set(key.toLowerCase(),term_object);
+    else
+      userVariableAnnotations.set(key.toLowerCase(),term_object);
+  }
 };
 
-const suggestions = {
-  'time': [
-    ['APOLLO_SV_00000069','time step identifying numeral','The time step number of a simulation.','http://purl.obolibrary.org/obo/APOLLO_SV_00000069'],
-    ['APOLLO_SV_00000272','time since time scale zero','A duration of time that has elapsed since the zero reference point of a time scale.','http://purl.obolibrary.org/obo/APOLLO_SV_00000272'],
-    ['OMRSE_00000136','date','The only valid string values for this property are ISO 8601 formatted date strings in extended form. It is allowable specify only the year, e.g. "2016" but only when the 1D temporal region references the entire year. Ditto for month, e.g. "2016-04" is acceptable but only if it references the entire interval of that month.'],
-  ],
-  'angle': [
-    ['TODO','TODO','TODO'],
-  ],
-};
+// processTerms('terms.yml');
+// console.log('userParameters',userParameters);
+// console.log('userVariables',userVariables);
+// console.log('userVariableAnnotations',userVariableAnnotations);
+
+// const prompt_choice = async (name,suggestions)=>{
+//   let title = '';
+//   title += `-------------------------------------------------------------------------\n`;
+//   title += `Please provide an Ontology Term Identifier for data.csv column "${name}".\n`;
+
+//   // suggestions.push(['None','use the column name as an undefined term','']);
+
+//   title += '  Suggestions:\n';
+//   for(let i=0; i<suggestions.length; i++)
+//     title += `    ${i+1}) ${suggestions[i][0]}: ${suggestions[i][1]}\n       ${suggestions[i][2]}\n`;
+//   title += 'TermIdentifier: ';
+
+//   const answer = await prompt_cmdline(title);
+//   if(answer==='')
+//     return {
+//       '@id':'#'+name.split(' ').join('_'),
+//       name:name,
+//     };
+
+//   // TODO what if user entered text instead of index
+//   const answerAsIndex = parseInt(answer)-1;
+//   return {
+//     '@id':suggestions[answerAsIndex][3],
+//     identifier:suggestions[answerAsIndex][0],
+//     name:suggestions[answerAsIndex][1],
+//   };
+// };
+
+// const prompt_variable = async ()=>{
+//   let title = '';
+//   title += `-------------------------------------------------------------------------\n`;
+//   title += `Please provide additional variables represented in the data if possible.\n`;
+//   title += 'Variable Name: ';
+
+//   const name = await prompt_cmdline(title);
+//   if(!(name==='')){
+//     title = 'Variable Term Identifier:';
+//     const url = await prompt_cmdline(title);
+//     if(!(url==='')){
+//       return {
+//         '@id':url,
+//         '@type':'PropertyValue',
+//         propertyID:url,
+//         name:name,
+//       };
+//     }
+//     else{
+//       return {
+//         '@id':'#'+,name.split(' ').join('_')
+//         '@type':'PropertyValue',
+//         name:name,
+//       };
+//     }
+//   }
+//   else{
+//     return;
+//   }
+
+//   // TODO what if user entered text instead of index
+//   const answerAsIndex = parseInt(answer)-1;
+//   return {
+//     '@id':suggestions[answerAsIndex][3],
+//     identifier:suggestions[answerAsIndex][0],
+//     name:suggestions[answerAsIndex][1],
+//   };
+// };
+
+// const suggestions = {
+//   'time': [
+//     ['APOLLO_SV_00000069','time step identifying numeral','The time step number of a simulation.','http://purl.obolibrary.org/obo/APOLLO_SV_00000069'],
+//     ['APOLLO_SV_00000272','time since time scale zero','A duration of time that has elapsed since the zero reference point of a time scale.','http://purl.obolibrary.org/obo/APOLLO_SV_00000272'],
+//     ['OMRSE_00000136','date','The only valid string values for this property are ISO 8601 formatted date strings in extended form. It is allowable specify only the year, e.g. "2016" but only when the 1D temporal region references the entire year. Ditto for month, e.g. "2016-04" is acceptable but only if it references the entire interval of that month.'],
+//   ],
+//   'angle': [
+//     ['TODO','TODO','TODO'],
+//   ],
+// };
 
 const createTermValue = (termKey,value)=>{
   const id = termKey+'_'+value;
@@ -166,7 +252,9 @@ const createTermValue = (termKey,value)=>{
   const termValue =  {
     '@id': id,
     '@type': 'PropertyValue',
-    'propertyId': term['@id'],
+    'propertyID': term['@id'],
+    'description': term.description,
+    'identifier': term.identifier,
     'name': term.name,
     'value': value
   };
@@ -181,7 +269,7 @@ const createFile = async (path,terms)=>{
 
   const file = {
     '@id': id,
-    '@type': ['File','Sample'],
+    '@type': ['File','https://bioschemas.org/Sample'],
     'encodingFormat': path.split('.').pop(),
     'additionalProperty': []
   };
@@ -202,7 +290,8 @@ const createFile = async (path,terms)=>{
     for await(const line of rl) {
       if(line.includes('<AppendedData')) break;
       if(line.includes('<DataArray')){
-        variables.set(line.split('Name="')[1].split('"')[0],null);
+        const name = line.split('Name="')[1].split('"')[0];
+        variables.set(name,null);
       }
     }
   }
@@ -213,17 +302,17 @@ const createFile = async (path,terms)=>{
   return id;
 };
 
-const getOntologyTerm = async (name,target)=>{
-  const name_lower = name.toLowerCase();
-  return await prompt_choice(
-    name,
-    ['t','time','timestep'].includes(name_lower) || name_lower.includes('time')
-      ? suggestions.time
-      : name_lower.includes('step')
-        ? [suggestions.time[0]]
-        : []
-  );
-};
+// const getOntologyTerm = async (name,target)=>{
+//   const name_lower = name.toLowerCase();
+//   return await prompt_choice(
+//     name,
+//     ['t','time','timestep'].includes(name_lower) || name_lower.includes('time')
+//       ? suggestions.time
+//       : name_lower.includes('step')
+//         ? [suggestions.time[0]]
+//         : []
+//   );
+// };
 
 const processCSV = async file => {
   const csv_raw = fs.readFileSync(cdb_path+'/'+file,'UTF-8').split('\n');
@@ -231,7 +320,19 @@ const processCSV = async file => {
   for(let column of columns){
     if(column.toLowerCase().includes('file')) continue;
 
-    terms.set(column,await getOntologyTerm(column));
+    if(userParameters.has(column)){
+      const term = userParameters.get(column);
+      terms.set(column,term);
+    }
+    else{
+      const term = {
+        '@id':'#'+column.split(' ').join('_'),
+        '@type':'PropertyValue',
+        name:column,
+      };
+      terms.set(column,term);
+    }
+
   }
 
   // for(let i=1; i<3; i++){
@@ -252,9 +353,18 @@ const processCSV = async file => {
   }
 
   for(let name of variables.keys()){
-    const term = await getOntologyTerm(name);
+    if(name in terms.keys()){
+      const term = userVariableAnnotations[key];
+      variables.set(name,term);
+      // term['@type'] = 'Property';
+      root_dataset.variableMeasured.push({'@id': term['@id']});
+      roc['@graph'].push(term);
+    }
+  }
+
+  for(let name of userVariables.keys()){
+    const term = userVariables.get(name);
     variables.set(name,term);
-    term['@type'] = 'Property';
     root_dataset.variableMeasured.push({'@id': term['@id']});
     roc['@graph'].push(term);
   }
@@ -275,6 +385,10 @@ const processCWL = async file => {
 };
 
 const init = async ()=>{
+
+  if(root_files.includes('terms.yml')){ 
+    await processTerms("terms.yml");
+  }
 
   // process files
   for(let file of root_files){
@@ -343,7 +457,7 @@ init();
 //     const property = {
 //       '@id': items[2]+'_'+i,
 //       '@type': 'PropertyValue',
-//       'propertyId': term.termCode,
+//       'propertyID': term.termCode,
 //       'name': term.name,
 //       'value': items[i]
 //     };
