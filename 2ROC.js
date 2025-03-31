@@ -1,7 +1,40 @@
+import fs from 'fs';
+import readline from 'readline';
+import yaml from 'js-yaml';
+import XMLImageDataReader from '@kitware/vtk.js/IO/XML/XMLImageDataReader.js';
+
+const getFieldDataArrays = filePath => {
+  const fileBuffer = fs.readFileSync(filePath);
+  const reader = XMLImageDataReader.newInstance();
+  reader.parseAsArrayBuffer(fileBuffer);
+  const imageData = reader.getOutputData();
+  const fieldData = imageData.getFieldData();
+
+  let map = new Map();
+
+  for (let i = 0; i < fieldData.getNumberOfArrays(); i++) {
+      const array = fieldData.getArray(i);
+      const nv = array.getNumberOfValues();
+      if(nv==1){
+        const name = array.getName();
+        map.set(name,array.getData().slice(0, 1)[0]);
+      }
+  }
+
+  return map;
+};
+
 // const cdb_path = '/home/jones/2tb/data/jet4.cdb';
 // const cdb_path = '/home/jones/2tb/data/jet4-benchmark-localized-topological-simplification-main/';
 // const cdb_path = '/home/jones/2tb/data/jet-data-new/';
-const cdb_path = '/home/wetzels/jet4-benchmark-localized-topological-simplification/';
+// const cdb_path = '/home/wetzels/jet4-benchmark-localized-topological-simplification/';
+const cdb_path = '/home/wetzels/data/jet4-test.cdb/';
+
+
+const root_files = fs.readdirSync(cdb_path);
+
+const fd = getFieldDataArrays(cdb_path+'v_0000.vti');
+console.log(fd);
 
 const roc = {
   "@context": "https://w3id.org/ro/crate/1.1/context",
@@ -14,15 +47,6 @@ const roc = {
     }
   ]
 };
-
-// process cff
-
-const fs = require('fs');
-const yaml = require('js-yaml');
-const readline = require('readline');
-
-
-const root_files = fs.readdirSync(cdb_path);
 
 const default_date = new Date();
 const default_name = cdb_path.split('/').at(-2);
@@ -119,7 +143,7 @@ const processTerms = file => {
   const term_assignment = yaml.load(terms_yml);
   for(let key of Object.keys(term_assignment['parameters'])){
     const term = term_assignment['parameters'][key];
-    term_object = {
+    let term_object = {
       '@id': "#"+key.split(' ').join('_'),
       '@type': 'PropertyValue',
       'name': key
@@ -138,7 +162,7 @@ const processTerms = file => {
   }
   for(let key of Object.keys(term_assignment['variables'])){
     const term = term_assignment['variables'][key];
-    term_object = {
+    let term_object = {
       '@id': "#"+key.split(' ').join('_'),
       '@type': 'PropertyValue',
       'name': key
@@ -263,7 +287,7 @@ const createTermValue = (termKey,value)=>{
   return id;
 };
 
-const createFile = async (path,terms)=>{
+const createFile = async (path,file_terms)=>{
   const id = './'+path;
   if(files.has(id)) return id;
 
@@ -274,7 +298,7 @@ const createFile = async (path,terms)=>{
     'additionalProperty': []
   };
 
-  for(let term of terms)
+  for(let term of file_terms)
     file.additionalProperty.push({'@id':term});
 
   if(path.endsWith('vti')){
@@ -293,6 +317,17 @@ const createFile = async (path,terms)=>{
         const name = line.split('Name="')[1].split('"')[0];
         variables.set(name,null);
       }
+    }
+    const fieldData = getFieldDataArrays(cdb_path+'/'+path);
+    for(let key of fieldData.keys()){
+      const term = userParameters.get(key);
+      terms.set(key,term);
+      if(!term) continue;
+      const termValue = createTermValue(key,fieldData.get(key));
+      console.log('termValue',termValue);
+      console.log('file.additionalProperty',file.additionalProperty);
+      file.additionalProperty.push({'@id':termValue});
+      console.log('file.additionalProperty',file.additionalProperty);
     }
   }
 
@@ -402,6 +437,8 @@ const init = async ()=>{
 
   const res = JSON.stringify(roc,null,2);
   fs.writeFileSync(cdb_path+'/ro-crate-metadata.json', res);
+
+  // console.log(res)
 };
 
 init();
