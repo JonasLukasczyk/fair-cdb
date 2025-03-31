@@ -231,10 +231,7 @@ const createFile = async (path,file_terms)=>{
       terms.set(key,term);
       if(!term) continue;
       const termValue = createTermValue(key,fieldData.get(key));
-      console.log('termValue',termValue);
-      console.log('file.additionalProperty',file.additionalProperty);
       file.additionalProperty.push({'@id':termValue});
-      console.log('file.additionalProperty',file.additionalProperty);
     }
   }
 
